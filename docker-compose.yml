@@ -158,7 +158,7 @@ services:
       - ./infra/nginx/certs:/etc/nginx/certs:ro
     depends_on:
       oauth2-proxy:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsk https://127.0.0.1/ || curl -fs http://127.0.0.1/"]
       interval: 10s
