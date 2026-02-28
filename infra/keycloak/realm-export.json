@@ -1,0 +1,40 @@
+{
+  "realm": "dupli",
+  "enabled": true,
+  "displayName": "Dupli",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "sslRequired": "external",
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Platform admin"
+      },
+      {
+        "name": "operator",
+        "description": "Ops user"
+      },
+      {
+        "name": "viewer",
+        "description": "Read-only user"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "oauth2-proxy",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "8mFj8Y4vJegqgVCqQIgVOaMSqFRJobTMxNYJXoY8F8c=",
+      "redirectUris": [
+        "https://copytrading.alamacs.ch/oauth2/callback"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false
+    }
+  ]
+}
