@@ -1,5 +1,5 @@
 FROM quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
 
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 USER 65534
