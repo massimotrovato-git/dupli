@@ -61,7 +61,7 @@ Guida completa per il deploy e l'operativita' della piattaforma Dupli Copy-Tradi
 | **postgres** | `postgres:16` | - | `pg_isready` |
 | **redis** | `redis:7` | - | `redis-cli ping` |
 | **keycloak** | `quay.io/keycloak/keycloak:25.0` | `8081:8080` | TCP probe :8080 |
-| **oauth2-proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.6.0` | - | `wget /ping` |
+| **oauth2-proxy** | `./infra/oauth2-proxy` (build) | - | `curl /ping` |
 | **api** | `./services/api` (build) | - | HTTP GET `/api/health` |
 | **worker** | `./services/worker` (build) | - | - |
 | **telegram** | `./services/telegram` (build) | - | - |
@@ -102,6 +102,7 @@ cp .env.example .env
 | `OAUTH2_PROXY_COOKIE_SECURE` | `true` | `false` per dev locale con self-signed certs |
 | `TELEGRAM_API_ID` | - | Da https://my.telegram.org |
 | `TELEGRAM_API_HASH` | - | Da https://my.telegram.org |
+| `TELEGRAM_SESSION_STRING` | - | **Obbligatorio**: Telethon StringSession (vedi sotto) |
 | `MT5_GATEWAY_URL` | `http://mt5-gateway:8090` | URL del gateway MT5 (Windows) |
 | `MT5_ENABLED` | `true` | Abilita executor MT5 |
 | `CTRADER_ENABLED` | `false` | Abilita executor cTrader |
@@ -376,9 +377,37 @@ docker compose exec worker python -c "import redis,os; r=redis.from_url(os.geten
 docker compose logs telegram
 # Verifica:
 # - TELEGRAM_API_ID e TELEGRAM_API_HASH validi
-# - TELEGRAM_SESSION: la prima volta potrebbe richiedere autenticazione interattiva
+# - TELEGRAM_SESSION_STRING: deve essere una StringSession valida (vedi sotto)
 # - TELEGRAM_SOURCE_CHAT_ID: deve essere l'ID numerico del canale/gruppo
 ```
+
+### Generare la TELEGRAM_SESSION_STRING
+
+La session string va generata **una volta** sulla tua macchina locale (non nel container).
+Richiede l'accesso interattivo per inserire il codice di verifica Telegram.
+
+```bash
+pip install telethon
+python3 -c "
+from telethon.sync import TelegramClient
+from telethon.sessions import StringSession
+
+api_id = int(input('TELEGRAM_API_ID: '))
+api_hash = input('TELEGRAM_API_HASH: ')
+
+with TelegramClient(StringSession(), api_id, api_hash) as client:
+    print()
+    print('=== TELEGRAM_SESSION_STRING ===')
+    print(client.session.save())
+    print('================================')
+"
+```
+
+1. Inserisci `api_id` e `api_hash` (da https://my.telegram.org)
+2. Inserisci il numero di telefono e il codice di verifica
+3. Copia la stringa stampata e incollala in `.env` come `TELEGRAM_SESSION_STRING`
+
+> **Nota**: la session string non scade finche' non fai logout o revochi la sessione da Telegram.
 
 ---
 
