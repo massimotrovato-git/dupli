@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -16,12 +17,19 @@ services:
 
   redis:
     image: redis:7
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
+    restart: unless-stopped
     command: ["start-dev", "--import-realm"]
     environment:
       KC_DB: dev-file
@@ -33,9 +41,16 @@ services:
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     ports:
       - "8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo done"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
 
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    restart: unless-stopped
     environment:
       OAUTH2_PROXY_PROVIDER: oidc
       OAUTH2_PROXY_OIDC_ISSUER_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}
@@ -49,15 +64,18 @@ services:
       OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
       OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
-      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_SECURE: ${OAUTH2_PROXY_COOKIE_SECURE:-true}
       OAUTH2_PROXY_COOKIE_SAMESITE: "lax"
       OAUTH2_PROXY_REVERSE_PROXY: "true"
     depends_on:
-      - keycloak
-      - api
+      keycloak:
+        condition: service_healthy
+      api:
+        condition: service_started
 
   api:
     build: ./services/api
+    restart: unless-stopped
     environment:
       APP_ENV: ${APP_ENV}
       APP_BASE_URL: ${APP_BASE_URL}
@@ -75,12 +93,13 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./services/api:/app
 
   worker:
     build: ./services/worker
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -95,10 +114,11 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   telegram:
     build: ./services/telegram
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -115,17 +135,18 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   nginx:
     image: nginx:1.27
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./infra/nginx/certs:/etc/nginx/certs
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - oauth2-proxy
 
