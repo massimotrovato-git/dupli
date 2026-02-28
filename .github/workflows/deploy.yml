@@ -2,43 +2,37 @@ name: Deploy to production
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 concurrency:
-  group: production-deploy
+  group: deploy-production
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: SSH deploy
+    name: Deploy via SSH
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Start ssh-agent and load key
+      - name: Load SSH key into agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-      - name: Populate known_hosts
-        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Execute remote deploy
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      - name: Add server to known_hosts
         run: |
-          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s << 'EOF'
-            set -euo pipefail
-            cd "${{ secrets.DEPLOY_PATH }}"
-            echo "--- git fetch & reset ---"
-            git fetch --all
-            git reset --hard origin/main
-            echo "--- docker compose pull ---"
-            docker compose pull
-            echo "--- docker compose up ---"
-            docker compose up -d --remove-orphans
-            echo "--- done ---"
-            docker compose ps
-          EOF
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          set -e
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "\
+            set -e && \
+            cd ${{ secrets.DEPLOY_PATH }} && \
+            git fetch --all && \
+            git reset --hard origin/main && \
+            docker compose pull && \
+            docker compose up -d --remove-orphans \
+          "
