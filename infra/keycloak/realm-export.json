@@ -1,40 +1,150 @@
 {
   "realm": "dupli",
   "enabled": true,
-  "displayName": "Dupli",
+  "displayName": "Dupli – Copy-Trading Platform",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "sslRequired": "external",
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "maxDeltaTimeSeconds": 600,
+  "waitIncrementSeconds": 60,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": false
+    }
+  ],
   "roles": {
     "realm": [
       {
         "name": "admin",
-        "description": "Platform admin"
+        "description": "Full platform administration: manage users, prop firms, accounts, masters, copysets, risk profiles, and all trade operations"
       },
       {
         "name": "operator",
-        "description": "Ops user"
+        "description": "Operational access: CRUD on prop firms, accounts, masters, copysets, risk profiles; queue trade intents; view execution logs"
       },
       {
         "name": "viewer",
-        "description": "Read-only user"
+        "description": "Read-only access: view prop firms, accounts, masters, copysets, trade intents, and execution logs"
       }
     ]
   },
+  "groups": [
+    {
+      "name": "admins",
+      "realmRoles": ["admin"]
+    },
+    {
+      "name": "operators",
+      "realmRoles": ["operator"]
+    },
+    {
+      "name": "viewers",
+      "realmRoles": ["viewer"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "dupli-roles",
+      "description": "Exposes realm roles and groups as claims for oauth2-proxy",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "preferred_username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
   "clients": [
     {
       "clientId": "oauth2-proxy",
+      "name": "OAuth2 Proxy – Dupli Gateway",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
-      "secret": "8mFj8Y4vJegqgVCqQIgVOaMSqFRJobTMxNYJXoY8F8c=",
+      "secret": "CHANGE_ME_OAUTH2_PROXY_SECRET",
       "redirectUris": [
-        "https://copytrading.alamacs.ch/oauth2/callback"
+        "https://YOUR_DOMAIN/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://YOUR_DOMAIN"
       ],
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "dupli-roles"
+      ]
+    },
+    {
+      "clientId": "dupli-api",
+      "name": "Dupli API (service account)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "CHANGE_ME_DUPLI_API_SECRET",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": [
+        "openid",
+        "dupli-roles"
+      ]
     }
   ]
 }
