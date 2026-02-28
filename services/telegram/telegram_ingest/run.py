@@ -1,18 +1,39 @@
-import os, uuid, asyncio
+import os, sys, uuid, asyncio
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from sqlalchemy import select
 from .db import SessionLocal
 from .models import Master, TradeIntent
 from .parser import parse
 
+
+def _require_env(name: str) -> str:
+    """Return env var value or exit with a clear error (no interactive prompt)."""
+    value = os.getenv(name, "").strip()
+    if not value:
+        print(f"FATAL: environment variable {name} is required but not set. Exiting.", flush=True)
+        sys.exit(1)
+    return value
+
+
 async def main():
-    api_id = int(os.getenv("TELEGRAM_API_ID"))
-    api_hash = os.getenv("TELEGRAM_API_HASH")
-    session = os.getenv("TELEGRAM_SESSION", "telegram.session")
+    api_id_raw = _require_env("TELEGRAM_API_ID")
+    api_hash = _require_env("TELEGRAM_API_HASH")
+    session_string = _require_env("TELEGRAM_SESSION_STRING")
     chat_id = int(os.getenv("TELEGRAM_SOURCE_CHAT_ID", "0"))
 
-    client = TelegramClient(session, api_id, api_hash)
-    await client.start()
+    try:
+        api_id = int(api_id_raw)
+    except ValueError:
+        print(f"FATAL: TELEGRAM_API_ID must be an integer, got: {api_id_raw!r}", flush=True)
+        sys.exit(1)
+
+    client = TelegramClient(StringSession(session_string), api_id, api_hash)
+    await client.connect()
+    if not await client.is_user_authorized():
+        print("FATAL: session string is invalid or expired. Generate a new one.", flush=True)
+        sys.exit(1)
+    print("Telegram client connected (user session).", flush=True)
 
     # pick or create a Master source=telegram
     db = SessionLocal()
