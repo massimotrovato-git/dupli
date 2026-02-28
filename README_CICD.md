@@ -13,7 +13,7 @@ Ogni **push su `main`** attiva il workflow `.github/workflows/deploy.yml` che:
 3. Esegue `docker compose pull` per aggiornare le immagini
 4. Esegue `docker compose up -d --remove-orphans` per riavviare i servizi
 
-Il workflow usa [appleboy/ssh-action](https://github.com/appleboy/ssh-action) e ha `concurrency` configurata per evitare deploy paralleli.
+Il workflow usa [webfactory/ssh-agent](https://github.com/webfactory/ssh-agent) per caricare la chiave SSH nell'agente e poi esegue i comandi via `ssh` nativo. La `concurrency` e' configurata per evitare deploy paralleli.
 
 ---
 
